@@ -62,13 +62,13 @@ numerical_columns = [
 st.markdown("<h1 style='text-align: center;'>🎓 Student Dropout Prediction</h1>", unsafe_allow_html=True)
 st.sidebar.header("Input Student Details")
 
-# Basic & Categorical Inputs
+# Basic Inputs
 marital_status = st.sidebar.selectbox("Marital Status", [1, 2, 3, 4, 5, 6])
 application_mode = st.sidebar.selectbox("Application Mode", [1, 2, 5, 7, 10, 15, 16, 17, 18, 26, 27, 39, 42, 43, 44, 51, 53, 57])
 application_order = st.sidebar.number_input("Application Order", min_value=0, max_value=9, value=0, step=1)
 course = st.sidebar.selectbox("Course", [33, 171, 8014, 9003, 9070, 9085, 9119, 9130, 9147, 9238, 9254, 9500, 9556, 9670, 9773, 9853, 9991])
 daytime_evening_attendance = st.sidebar.selectbox("Attendance", [1, 0])
-previous_qualification = st.sidebar.selectbox("Previous Qualification Code", [1, 2, 3, 4, 5, 6, 9, 10, 12, 14, 15, 19, 38, 39, 40, 42, 43])
+previous_qualification = st.sidebar.selectbox("Previous Qualification", [1, 2, 3, 4, 5, 6, 9, 10, 12, 14, 15, 19, 38, 39, 40, 42, 43])
 previous_qualification_grade = st.sidebar.slider("Previous Qualification Grade", 0.0, 200.0, 150.0)
 admission_grade = st.sidebar.slider("Admission Grade", 0.0, 200.0, 150.0)
 nacionality = st.sidebar.selectbox("Nationality", [1, 2, 6, 11, 13, 14, 17, 21, 22, 24, 25, 26, 32, 41, 62, 100, 101, 103, 105, 108, 109])
@@ -91,7 +91,7 @@ curricular_units_2nd_sem_approved = st.sidebar.number_input("2nd Sem Approved", 
 curricular_units_2nd_sem_grade = st.sidebar.slider("2nd Sem Grade", 0.0, 20.0, 10.0)
 curricular_units_2nd_sem_without_evaluations = st.sidebar.number_input("2nd Sem Without Evaluations", 0, 100, 0)
 
-# Econ Indicators & Binary
+# Economic and Binary
 unemployment_rate = st.sidebar.number_input("Unemployment Rate", 0.0, 50.0, 10.0)
 inflation_rate = st.sidebar.number_input("Inflation Rate", -10.0, 50.0, 1.0)
 GDP = st.sidebar.number_input("GDP", -10.0, 50.0, 1.0)
@@ -105,7 +105,7 @@ gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
 age_at_enrollment = st.sidebar.number_input("Age at Enrollment", 17, 100, 18)
 
 # ---------------------------
-# Feature Construction
+# DataFrame Build & Feature Engineering
 # ---------------------------
 data = {
     "Marital_status": marital_status,
@@ -145,12 +145,16 @@ data = {
     "Gender": 1 if gender == "Male" else 0,
     "Age_at_enrollment": age_at_enrollment
 }
-
 input_df = pd.DataFrame(data, index=[0])
 
 # Engineered Features
 input_df["Grade_Progression"] = input_df["Curricular_units_2nd_sem_grade"] - input_df["Curricular_units_1st_sem_grade"]
 input_df["Attendance_Consistency"] = input_df["Curricular_units_1st_sem_approved"] / (input_df["Curricular_units_1st_sem_enrolled"] + 1e-5)
+input_df["Age_Group"] = pd.cut(
+    input_df["Age_at_enrollment"],
+    bins=[15, 20, 25, 30, 35, 100],
+    labels=["15-20", "21-25", "26-30", "31-35", "36+"]
+)
 
 # ---------------------------
 # Prediction Section
@@ -178,5 +182,6 @@ if st.button("Predict Dropout"):
         with col2:
             st.subheader("Processed Input Features")
             st.dataframe(input_proc)
+
     except Exception as e:
         st.error(f"Prediction failed: {e}")
