@@ -43,12 +43,26 @@ def load_artifacts():
 
 model, scaler, encoder, training_columns = load_artifacts()
 
+# Use same order of numerical columns as used in training
+numerical_columns = [
+    "Previous_qualification_grade", "Admission_grade",
+    "Curricular_units_1st_sem_credited", "Curricular_units_1st_sem_enrolled",
+    "Curricular_units_1st_sem_evaluations", "Curricular_units_1st_sem_approved",
+    "Curricular_units_1st_sem_grade", "Curricular_units_1st_sem_without_evaluations",
+    "Curricular_units_2nd_sem_credited", "Curricular_units_2nd_sem_enrolled",
+    "Curricular_units_2nd_sem_evaluations", "Curricular_units_2nd_sem_approved",
+    "Curricular_units_2nd_sem_grade", "Curricular_units_2nd_sem_without_evaluations",
+    "Age_at_enrollment", "Unemployment_rate", "Inflation_rate", "GDP",
+    "Grade_Progression", "Attendance_Consistency"
+]
+
 # ---------------------------
 # Inputs
 # ---------------------------
 st.markdown("<h1 style='text-align: center;'>🎓 Student Dropout Prediction</h1>", unsafe_allow_html=True)
 st.sidebar.header("Input Student Details")
 
+# Basic & Categorical Inputs
 marital_status = st.sidebar.selectbox("Marital Status", [1, 2, 3, 4, 5, 6])
 application_mode = st.sidebar.selectbox("Application Mode", [1, 2, 5, 7, 10, 15, 16, 17, 18, 26, 27, 39, 42, 43, 44, 51, 53, 57])
 application_order = st.sidebar.number_input("Application Order", min_value=0, max_value=9, value=0, step=1)
@@ -63,13 +77,13 @@ fathers_qualification = st.sidebar.selectbox("Father's Qualification", list(rang
 mothers_occupation = st.sidebar.selectbox("Mother's Occupation", list(range(0, 145)))
 fathers_occupation = st.sidebar.selectbox("Father's Occupation", list(range(0, 145)))
 
+# Academic Performance
 curricular_units_1st_sem_credited = st.sidebar.number_input("1st Sem Credited", 0, 100, 30)
 curricular_units_1st_sem_enrolled = st.sidebar.number_input("1st Sem Enrolled", 0, 100, 30)
 curricular_units_1st_sem_evaluations = st.sidebar.number_input("1st Sem Evaluations", 0, 100, 30)
 curricular_units_1st_sem_approved = st.sidebar.number_input("1st Sem Approved", 0, 100, 30)
 curricular_units_1st_sem_grade = st.sidebar.slider("1st Sem Grade", 0.0, 20.0, 10.0)
 curricular_units_1st_sem_without_evaluations = st.sidebar.number_input("1st Sem Without Evaluations", 0, 100, 0)
-
 curricular_units_2nd_sem_credited = st.sidebar.number_input("2nd Sem Credited", 0, 100, 30)
 curricular_units_2nd_sem_enrolled = st.sidebar.number_input("2nd Sem Enrolled", 0, 100, 30)
 curricular_units_2nd_sem_evaluations = st.sidebar.number_input("2nd Sem Evaluations", 0, 100, 30)
@@ -77,11 +91,10 @@ curricular_units_2nd_sem_approved = st.sidebar.number_input("2nd Sem Approved", 
 curricular_units_2nd_sem_grade = st.sidebar.slider("2nd Sem Grade", 0.0, 20.0, 10.0)
 curricular_units_2nd_sem_without_evaluations = st.sidebar.number_input("2nd Sem Without Evaluations", 0, 100, 0)
 
+# Econ Indicators & Binary
 unemployment_rate = st.sidebar.number_input("Unemployment Rate", 0.0, 50.0, 10.0)
 inflation_rate = st.sidebar.number_input("Inflation Rate", -10.0, 50.0, 1.0)
 GDP = st.sidebar.number_input("GDP", -10.0, 50.0, 1.0)
-
-# Binary Options
 displaced = st.sidebar.selectbox("Displaced", ["Yes", "No"])
 educational_special_needs = st.sidebar.selectbox("Educational Special Needs", ["Yes", "No"])
 debtor = st.sidebar.selectbox("Debtor", ["Yes", "No"])
@@ -92,7 +105,7 @@ gender = st.sidebar.selectbox("Gender", ["Male", "Female"])
 age_at_enrollment = st.sidebar.number_input("Age at Enrollment", 17, 100, 18)
 
 # ---------------------------
-# Build Feature Input
+# Feature Construction
 # ---------------------------
 data = {
     "Marital_status": marital_status,
@@ -135,40 +148,35 @@ data = {
 
 input_df = pd.DataFrame(data, index=[0])
 
-# Safely add engineered features
-try:
-    input_df["Grade_Progression"] = input_df["Curricular_units_2nd_sem_grade"] - input_df["Curricular_units_1st_sem_grade"]
-    input_df["Attendance_Consistency"] = input_df["Curricular_units_1st_sem_approved"] / (input_df["Curricular_units_1st_sem_enrolled"] + 1e-5)
-except Exception as e:
-    st.warning(f"Engineered feature issue: {e}")
+# Engineered Features
+input_df["Grade_Progression"] = input_df["Curricular_units_2nd_sem_grade"] - input_df["Curricular_units_1st_sem_grade"]
+input_df["Attendance_Consistency"] = input_df["Curricular_units_1st_sem_approved"] / (input_df["Curricular_units_1st_sem_enrolled"] + 1e-5)
 
 # ---------------------------
 # Prediction Section
 # ---------------------------
 st.markdown("## Prediction Section")
 if st.button("Predict Dropout"):
-    # Only pass columns encoder was trained on
-    cat_cols = [
-        "Marital_status", "Application_mode", "Course",
-        "Nacionality", "Mothers_qualification", "Fathers_qualification",
-        "Mothers_occupation", "Fathers_occupation"
-    ]
-    input_encoded = encoder.transform(input_df[cat_cols])
-    input_encoded_df = pd.DataFrame(input_encoded, columns=encoder.get_feature_names_out(cat_cols), index=input_df.index)
+    try:
+        cat_cols = encoder.feature_names_in_.tolist()
+        input_encoded = encoder.transform(input_df[cat_cols])
+        input_encoded_df = pd.DataFrame(input_encoded, columns=encoder.get_feature_names_out(), index=input_df.index)
 
-    input_proc = input_df.drop(columns=cat_cols, errors="ignore")
-    input_proc = pd.concat([input_proc, input_encoded_df], axis=1)
+        input_proc = input_df.drop(columns=cat_cols, errors="ignore")
+        input_proc = pd.concat([input_proc, input_encoded_df], axis=1)
 
-    input_proc[numerical_columns] = scaler.transform(input_proc[numerical_columns])
-    input_proc = input_proc[training_columns]
+        input_proc[numerical_columns] = scaler.transform(input_proc[numerical_columns])
+        input_proc = input_proc[training_columns]
 
-    prediction = model.predict(input_proc)
-    status_map = {0: "Dropout", 1: "Graduate", 2: "Enrolled"}
+        prediction = model.predict(input_proc)
+        status_map = {0: "Dropout", 1: "Graduate", 2: "Enrolled"}
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Prediction Result")
-        st.success(f"Predicted Academic Status: **{status_map[prediction[0]]}**")
-    with col2:
-        st.subheader("Processed Input Features")
-        st.dataframe(input_proc)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("Prediction Result")
+            st.success(f"Predicted Academic Status: **{status_map[prediction[0]]}**")
+        with col2:
+            st.subheader("Processed Input Features")
+            st.dataframe(input_proc)
+    except Exception as e:
+        st.error(f"Prediction failed: {e}")
